@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Grid Lab — Binance Dashboard</title>
+  <style>
+    /* ── Reset & tokens ───────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg0:   #0b0e14;
+      --bg1:   #131722;
+      --bg2:   #1c2030;
+      --bg3:   #252a3a;
+      --line:  #2a3050;
+      --text:  #d1d4dc;
+      --muted: #6b7280;
+      --green: #0ecb81;
+      --red:   #f6465d;
+      --blue:  #4ea3ff;
+      --gold:  #f0b90b;
+      --font:  'Inter', system-ui, sans-serif;
+      --r:     8px;
+    }
+
+    body {
+      background: var(--bg0);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ──────────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 20px;
+      background: var(--bg1);
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+
+    .logo {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: .5px;
+      white-space: nowrap;
+    }
+
+    .symbol-form {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .symbol-form input {
+      background: var(--bg3);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      color: var(--text);
+      font-size: 13px;
+      padding: 5px 10px;
+      width: 120px;
+      text-transform: uppercase;
+      outline: none;
+    }
+    .symbol-form input:focus { border-color: var(--blue); }
+
+    .symbol-form button {
+      background: var(--blue);
+      border: none;
+      border-radius: var(--r);
+      color: #fff;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+    }
+    .symbol-form button:hover { filter: brightness(1.15); }
+
+    #live-price {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      min-width: 120px;
+    }
+
+    #price-change {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .ticker-mini {
+      display: flex;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+    .ticker-mini span b { color: var(--text); }
+
+    .status-dot {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+    .dot.ok   { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.err  { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      grid-template-rows: auto auto;
+      gap: 12px;
+      padding: 12px;
+      height: calc(100vh - 55px);
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; height: auto; }
+    }
+
+    /* ── Cards ────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--bg1);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: var(--muted);
+    }
+
+    .card-body { flex: 1; padding: 14px; overflow: auto; }
+
+    /* ── Chart ────────────────────────────────────────────────────────────── */
+    #chart-card {
+      grid-row: 1 / 3;
+    }
+
+    #chart-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+    }
+
+    canvas#chart {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .interval-tabs {
+      display: flex;
+      gap: 4px;
+    }
+    .interval-tabs button {
+      background: none;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 2px 8px;
+    }
+    .interval-tabs button.active,
+    .interval-tabs button:hover {
+      background: var(--bg3);
+      color: var(--text);
+      border-color: var(--blue);
+    }
+
+    /* ── Account ──────────────────────────────────────────────────────────── */
+    .balance-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+    .balance-label { color: var(--muted); font-size: 11px; }
+    .balance-val   { font-size: 20px; font-weight: 700; color: var(--green); }
+    .balance-sub   { font-size: 12px; color: var(--muted); }
+
+    .bar-wrap {
+      background: var(--bg3);
+      border-radius: 4px;
+      height: 6px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--green), var(--gold));
+      transition: width .4s;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .stat-box {
+      background: var(--bg2);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .stat-box .label { color: var(--muted); font-size: 10px; margin-bottom: 4px; }
+    .stat-box .val   { font-size: 14px; font-weight: 600; }
+
+    /* ── Positions ────────────────────────────────────────────────────────── */
+    .pos-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .pos-table th {
+      color: var(--muted);
+      font-weight: 500;
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    .pos-table td {
+      padding: 8px 8px;
+      border-bottom: 1px solid #1e2336;
+      vertical-align: middle;
+    }
+    .pos-table tr:last-child td { border-bottom: none; }
+    .pos-table tr:hover td { background: var(--bg2); }
+
+    .side-long  { color: var(--green); font-weight: 600; }
+    .side-short { color: var(--red);   font-weight: 600; }
+    .pnl-pos    { color: var(--green); font-weight: 600; }
+    .pnl-neg    { color: var(--red);   font-weight: 600; }
+
+    .badge {
+      display: inline-block;
+      background: var(--bg3);
+      border-radius: 4px;
+      font-size: 10px;
+      padding: 1px 5px;
+      color: var(--muted);
+    }
+
+    /* ── Empty / error states ─────────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 24px 0;
+      font-size: 12px;
+    }
+
+    .err-msg {
+      color: var(--red);
+      font-size: 11px;
+      padding: 8px 0;
+    }
+
+    /* ── Refresh badge ────────────────────────────────────────────────────── */
+    #last-update {
+      font-size: 10px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════ TOP BAR ══════════════════ -->
+<header>
+  <div class="logo">⬡ Grid Lab</div>
+
+  <form class="symbol-form" id="sym-form">
+    <input id="sym-input" type="text" value="0GUSDT" maxlength="20" />
+    <button type="submit">OK</button>
+  </form>
+
+  <div id="live-price">—</div>
+  <div id="price-change">—</div>
+
+  <div class="ticker-mini" id="ticker-mini">
+    <span>24h H: <b id="t-high">—</b></span>
+    <span>24h L: <b id="t-low">—</b></span>
+    <span>Vol: <b id="t-vol">—</b></span>
+  </div>
+
+  <div class="status-dot">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-text">aguardando</span>
+    &nbsp;·&nbsp;
+    <span id="last-update">—</span>
+  </div>
+</header>
+
+<!-- ══════════════════ LAYOUT ══════════════════ -->
+<div class="layout">
+
+  <!-- ─── CHART ─── -->
+  <div class="card" id="chart-card">
+    <div class="card-header">
+      <span id="chart-title">Candles — 0GUSDT</span>
+      <div class="interval-tabs">
+        <button class="active" data-iv="1m">1m</button>
+        <button data-iv="5m">5m</button>
+        <button data-iv="15m">15m</button>
+        <button data-iv="1h">1h</button>
+        <button data-iv="4h">4h</button>
+      </div>
+    </div>
+    <div id="chart-wrap">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
+
+  <!-- ─── ACCOUNT ─── -->
+  <div class="card">
+    <div class="card-header">
+      <span>Conta Futuros</span>
+      <span id="acc-update">—</span>
+    </div>
+    <div class="card-body" id="account-body">
+      <p class="empty">Carregando conta…</p>
+    </div>
+  </div>
+
+  <!-- ─── POSITIONS ─── -->
+  <div class="card">
+    <div class="card-header">
+      <span>Posições Abertas</span>
+      <span id="pos-count" class="badge">0</span>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div id="positions-wrap">
+        <p class="empty">Nenhuma posição aberta</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   CONFIG
+══════════════════════════════════════════════════════════════════ */
+const PROXY      = 'http://localhost:8787';
+const PRICE_MS   = 4_000;   // poll de preço / ticker
+const ACCOUNT_MS = 15_000;  // poll de conta
+const KLINES_MS  = 30_000;  // poll de candles
+const KLINES_N   = 80;      // quantos candles mostrar
+
+/* ══════════════════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════════════════ */
+let symbol   = 'GUSDT';       // ajustado no DOMContentLoaded
+let interval = '1m';
+let klines   = [];            // [{o,h,l,c,v,t}]
+let lastPrice = null;
+
+/* ══════════════════════════════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+
+function fmt(n, dec = 4) {
+  if (n == null || isNaN(n)) return '—';
+  const v = parseFloat(n);
+  if (Math.abs(v) >= 1000) return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return v.toFixed(dec);
+}
+
+function fmtVol(n) {
+  const v = parseFloat(n);
+  if (v >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+  if (v >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+  if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+  return v.toFixed(0);
+}
+
+function nowStr() {
+  return new Date().toLocaleTimeString('pt-BR');
+}
+
+function setStatus(ok, text) {
+  $('status-dot').className  = 'dot ' + (ok ? 'ok' : 'err');
+  $('status-text').textContent = text;
+  $('last-update').textContent = nowStr();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TICKER / PRICE POLL
+══════════════════════════════════════════════════════════════════ */
+async function fetchTicker() {
+  try {
+    const [pRes, tRes] = await Promise.all([
+      fetch(`${PROXY}/price?symbol=${symbol}`),
+      fetch(`${PROXY}/ticker24h?symbol=${symbol}`)
+    ]);
+    const p = await pRes.json();
+    const t = await tRes.json();
+
+    const price = parseFloat(p.price);
+    const priceEl = $('live-price');
+    const changeEl = $('price-change');
+
+    // colour flash on price move
+    if (lastPrice !== null && price !== lastPrice) {
+      priceEl.style.color = price > lastPrice
+        ? 'var(--green)' : 'var(--red)';
+      setTimeout(() => { priceEl.style.color = ''; }, 700);
+    }
+    lastPrice = price;
+    priceEl.textContent = fmt(price, decimalDigits(price));
+
+    if (t.priceChangePercent != null) {
+      const pct = parseFloat(t.priceChangePercent);
+      changeEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+      changeEl.style.color = pct >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+
+    $('t-high').textContent = fmt(t.highPrice, decimalDigits(parseFloat(t.highPrice)));
+    $('t-low').textContent  = fmt(t.lowPrice,  decimalDigits(parseFloat(t.lowPrice)));
+    $('t-vol').textContent  = fmtVol(t.volume);
+
+    setStatus(true, 'ao vivo');
+  } catch {
+    setStatus(false, 'offline');
+  }
+}
+
+function decimalDigits(v) {
+  if (v >= 10000) return 1;
+  if (v >= 100)   return 2;
+  if (v >= 1)     return 4;
+  return 6;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ACCOUNT POLL
+══════════════════════════════════════════════════════════════════ */
+async function fetchAccount() {
+  const body = $('account-body');
+  try {
+    const r = await fetch(`${PROXY}/account`);
+    const d = await r.json();
+    $('acc-update').textContent = nowStr();
+
+    if (d.error) {
+      body.innerHTML = `<p class="err-msg">${d.error}</p>`;
+      renderPositions([]);
+      return;
+    }
+
+    const saldo  = parseFloat(d.saldoDisponivel || 0);
+    const margem = parseFloat(d.margemUsada     || 0);
+    const total  = saldo + margem;
+    const usoPct = total > 0 ? Math.min((margem / total) * 100, 100) : 0;
+
+    body.innerHTML = `
+      <div class="balance-row">
+        <div>
+          <div class="balance-label">Disponível (USDT)</div>
+          <div class="balance-val">$${fmt(saldo, 2)}</div>
+        </div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-fill" style="width:${usoPct.toFixed(1)}%"></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="label">Margem usada</div>
+          <div class="val">$${fmt(margem, 2)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Uso de margem</div>
+          <div class="val">${usoPct.toFixed(1)}%</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Total estimado</div>
+          <div class="val">$${fmt(total, 2)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Posições</div>
+          <div class="val">${(d.posicoes || []).length}</div>
+        </div>
+      </div>
+    `;
+
+    renderPositions(d.posicoes || []);
+  } catch {
+    body.innerHTML = `<p class="err-msg">Proxy não respondeu — rode node server.js</p>`;
+  }
+}
+
+function renderPositions(posicoes) {
+  const wrap = $('positions-wrap');
+  $('pos-count').textContent = posicoes.length;
+
+  if (!posicoes.length) {
+    wrap.innerHTML = '<p class="empty">Nenhuma posição aberta</p>';
+    return;
+  }
+
+  const rows = posicoes.map(p => {
+    const qty   = parseFloat(p.quantidade);
+    const pnl   = parseFloat(p.pnlNaoRealizado);
+    const side  = qty > 0 ? 'LONG' : 'SHORT';
+    const sideC = qty > 0 ? 'side-long' : 'side-short';
+    const pnlC  = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+    const dec   = decimalDigits(parseFloat(p.precoEntrada));
+    return `
+      <tr>
+        <td><b>${p.par}</b></td>
+        <td class="${sideC}">${side} <span class="badge">${p.alavancagem}x</span></td>
+        <td>${fmt(Math.abs(qty), 4)}</td>
+        <td>${fmt(p.precoEntrada, dec)}</td>
+        <td>${fmt(p.precoLiquidacao, dec)}</td>
+        <td class="${pnlC}">${pnl >= 0 ? '+' : ''}${fmt(pnl, 2)}</td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table class="pos-table">
+      <thead>
+        <tr>
+          <th>Par</th><th>Lado</th><th>Qtd</th>
+          <th>Entrada</th><th>Liquidação</th><th>PnL USDT</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   KLINES POLL
+══════════════════════════════════════════════════════════════════ */
+async function fetchKlines() {
+  try {
+    const r = await fetch(
+      `${PROXY}/klines?symbol=${symbol}&interval=${interval}&limit=${KLINES_N}`
+    );
+    const raw = await r.json();
+    if (!Array.isArray(raw)) return;
+    klines = raw.map(k => ({
+      t: k[0],
+      o: parseFloat(k[1]),
+      h: parseFloat(k[2]),
+      l: parseFloat(k[3]),
+      c: parseFloat(k[4]),
+      v: parseFloat(k[5]),
+    }));
+    drawChart();
+  } catch { /* silencioso — chart não atualiza */ }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CHART (canvas candlestick puro)
+══════════════════════════════════════════════════════════════════ */
+const canvas = $('chart');
+const ctx    = canvas.getContext('2d');
+
+function drawChart() {
+  const wrap = $('chart-wrap');
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight || 380;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  if (!klines.length) return;
+
+  const PAD_L = 70, PAD_R = 10, PAD_T = 20, PAD_B = 30;
+  const chartW = W - PAD_L - PAD_R;
+  const chartH = H - PAD_T - PAD_B;
+
+  // price range
+  const highs = klines.map(k => k.h);
+  const lows  = klines.map(k => k.l);
+  let maxP = Math.max(...highs);
+  let minP = Math.min(...lows);
+  const pad = (maxP - minP) * 0.04;
+  maxP += pad; minP -= pad;
+  const priceRange = maxP - minP || 1;
+
+  const toX = i => PAD_L + (i / (klines.length - 1 || 1)) * chartW;
+  const toY = p => PAD_T + chartH - ((p - minP) / priceRange) * chartH;
+
+  // background
+  ctx.fillStyle = getComputedStyle(document.documentElement)
+    .getPropertyValue('--bg1').trim();
+  ctx.fillRect(0, 0, W, H);
+
+  // grid lines
+  const gridCount = 5;
+  ctx.strokeStyle = '#1e2336';
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= gridCount; i++) {
+    const p = minP + (priceRange / gridCount) * i;
+    const y = toY(p);
+    ctx.beginPath();
+    ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y);
+    ctx.stroke();
+    // price label
+    ctx.fillStyle = '#6b7280';
+    ctx.font = `10px Inter, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText(fmt(p, decimalDigits(p)), PAD_L - 5, y + 4);
+  }
+
+  // candles
+  const candleW = Math.max(2, (chartW / klines.length) * 0.7);
+
+  klines.forEach((k, i) => {
+    const x  = toX(i);
+    const isUp = k.c >= k.o;
+    const color = isUp ? '#0ecb81' : '#f6465d';
+
+    // wick
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, toY(k.h));
+    ctx.lineTo(x, toY(k.l));
+    ctx.stroke();
+
+    // body
+    const bodyTop = toY(Math.max(k.o, k.c));
+    const bodyH   = Math.max(1, Math.abs(toY(k.o) - toY(k.c)));
+    ctx.fillStyle = color;
+    ctx.fillRect(x - candleW / 2, bodyTop, candleW, bodyH);
+  });
+
+  // last price line
+  if (lastPrice) {
+    const y = toY(lastPrice);
+    ctx.strokeStyle = '#4ea3ff';
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // price tag
+    ctx.fillStyle = '#4ea3ff';
+    ctx.beginPath();
+    ctx.roundRect(W - PAD_R - 62, y - 9, 62, 18, 4);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(fmt(lastPrice, decimalDigits(lastPrice)), W - PAD_R - 4, y + 4);
+  }
+
+  // x-axis time labels
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '9px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  const step = Math.ceil(klines.length / 8);
+  klines.forEach((k, i) => {
+    if (i % step !== 0) return;
+    const d = new Date(k.t);
+    const label = d.getHours().toString().padStart(2,'0') + ':' +
+                  d.getMinutes().toString().padStart(2,'0');
+    ctx.fillText(label, toX(i), H - PAD_B + 14);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SYMBOL CHANGE
+══════════════════════════════════════════════════════════════════ */
+function applySymbol(sym) {
+  symbol = sym.toUpperCase();
+  $('sym-input').value   = symbol;
+  $('chart-title').textContent = `Candles — ${symbol}`;
+  klines = [];
+  lastPrice = null;
+  $('live-price').textContent = '—';
+  $('price-change').textContent = '—';
+  fetchAll();
+}
+
+$('sym-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = $('sym-input').value.trim();
+  if (v) applySymbol(v);
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   INTERVAL TABS
+══════════════════════════════════════════════════════════════════ */
+document.querySelectorAll('.interval-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.interval-tabs button')
+      .forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    interval = btn.dataset.iv;
+    klines = [];
+    fetchKlines();
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════
+   POLLING LOOPS
+══════════════════════════════════════════════════════════════════ */
+async function fetchAll() {
+  await Promise.all([fetchTicker(), fetchKlines()]);
+  fetchAccount();  // não bloqueia
+}
+
+window.addEventListener('resize', () => { drawChart(); });
+
+// Start
+applySymbol($('sym-input').value.trim() || '0GUSDT');
+
+setInterval(fetchTicker,  PRICE_MS);
+setInterval(fetchAccount, ACCOUNT_MS);
+setInterval(fetchKlines,  KLINES_MS);
+</script>
+</body>
+</html>

@@ -33,12 +33,14 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 8787;
 
-// Libera o navegador a chamar este proxy. Em produção, restrinja a origin:
-//   app.use(cors({ origin: 'http://localhost:5500' }));
+// Serve index.html e arquivos estáticos do mesmo diretório
+app.use(express.static(path.join(__dirname)));
+
 app.use(cors());
 
 const KEY = process.env.BINANCE_KEY;

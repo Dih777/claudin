@@ -294,6 +294,13 @@
 </head>
 <body>
 
+<!-- banner de aviso proxy offline -->
+<div id="proxy-banner" style="display:none;background:#f6465d;color:#fff;font-size:12px;
+  font-weight:600;text-align:center;padding:7px;letter-spacing:.3px">
+  ⚠ Proxy offline — rode <code style="background:rgba(0,0,0,.25);padding:1px 6px;border-radius:3px">node server.js</code>
+  na pasta do projeto e recarregue a página.
+</div>
+
 <!-- ══════════════════ TOP BAR ══════════════════ -->
 <header>
   <div class="logo">⬡ Grid Lab</div>
@@ -370,7 +377,10 @@
 /* ══════════════════════════════════════════════════════════════════
    CONFIG
 ══════════════════════════════════════════════════════════════════ */
-const PROXY      = 'http://localhost:8787';
+// Detecta se foi aberto via o próprio proxy (porta 8787) ou via arquivo
+const PROXY = (location.port === '8787' || location.protocol === 'file:')
+  ? 'http://localhost:8787'
+  : `${location.protocol}//${location.hostname}:8787`;
 const PRICE_MS   = 4_000;   // poll de preço / ticker
 const ACCOUNT_MS = 15_000;  // poll de conta
 const KLINES_MS  = 30_000;  // poll de candles
@@ -409,9 +419,10 @@ function nowStr() {
 }
 
 function setStatus(ok, text) {
-  $('status-dot').className  = 'dot ' + (ok ? 'ok' : 'err');
+  $('status-dot').className    = 'dot ' + (ok ? 'ok' : 'err');
   $('status-text').textContent = text;
   $('last-update').textContent = nowStr();
+  $('proxy-banner').style.display = ok ? 'none' : 'block';
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -670,10 +681,24 @@ function drawChart() {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // price tag
+    // price tag (roundRect fallback for older browsers)
     ctx.fillStyle = '#4ea3ff';
+    const tx = W - PAD_R - 64, ty = y - 9, tw = 64, th = 18, tr = 4;
     ctx.beginPath();
-    ctx.roundRect(W - PAD_R - 62, y - 9, 62, 18, 4);
+    if (ctx.roundRect) {
+      ctx.roundRect(tx, ty, tw, th, tr);
+    } else {
+      ctx.moveTo(tx + tr, ty);
+      ctx.lineTo(tx + tw - tr, ty);
+      ctx.arcTo(tx + tw, ty, tx + tw, ty + tr, tr);
+      ctx.lineTo(tx + tw, ty + th - tr);
+      ctx.arcTo(tx + tw, ty + th, tx + tw - tr, ty + th, tr);
+      ctx.lineTo(tx + tr, ty + th);
+      ctx.arcTo(tx, ty + th, tx, ty + th - tr, tr);
+      ctx.lineTo(tx, ty + tr);
+      ctx.arcTo(tx, ty, tx + tr, ty, tr);
+      ctx.closePath();
+    }
     ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 10px Inter, sans-serif';
